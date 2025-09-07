@@ -12,7 +12,6 @@ const Home: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
 
   // Initialize search from URL parameters
   useEffect(() => {
@@ -41,57 +40,33 @@ const Home: React.FC = () => {
       setError('网络错误');
     } finally {
       setLoading(false);
-      setIsSearching(false);
-    }
+          }
   }, []);
-
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    (searchQuery: string) => {
-      setSearch(searchQuery);
-      setCurrentPage(1);
-      setIsSearching(false);
-    },
-    [fetchPosts]
-  );
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchInput !== search) {
-        debouncedSearch(searchInput);
-      }
-    }, 500); // 500ms delay
-
-    return () => clearTimeout(timeoutId);
-  }, [searchInput, search, debouncedSearch]);
 
   useEffect(() => {
     fetchPosts(currentPage, search);
   }, [currentPage, search, fetchPosts]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchInput(value);
-    if (value === '') {
-      setSearch('');
-      setIsSearching(false);
-    } else {
-      setIsSearching(true);
-    }
+    setSearchInput(e.target.value);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSearch(searchInput);
     setCurrentPage(1);
-    setIsSearching(false);
+    // Update URL parameters
+    if (searchInput.trim()) {
+      setSearchParams({ search: searchInput.trim() });
+    } else {
+      setSearchParams({});
+    }
   };
 
   const clearSearch = () => {
     setSearchInput('');
     setSearch('');
     setCurrentPage(1);
-    setIsSearching(false);
     setSearchParams({});
   };
 
@@ -133,27 +108,11 @@ const Home: React.FC = () => {
               ×
             </button>
           )}
-          {isSearching && (
-            <span
-              className="search-indicator"
-              style={{
-                position: 'absolute',
-                right: '2.5rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#6c757d',
-                fontSize: '0.875rem'
-              }}
-            >
-              搜索中...
-            </span>
-          )}
           <button 
             type="submit" 
             className="btn btn-primary search-btn"
-            disabled={isSearching}
           >
-            {isSearching ? '搜索中...' : '搜索'}
+            搜索
           </button>
         </form>
         
