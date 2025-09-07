@@ -484,6 +484,44 @@ app.post('/api/posts/:id/comments', auth, async (req, res) => {
   }
 });
 
+// 简单测试端点
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: '测试端点工作正常',
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url
+  });
+});
+
+// 简化的文章端点（不依赖数据库）
+app.get('/api/posts-simple', (req, res) => {
+  const mockPosts = [
+    {
+      id: '1',
+      title: '测试文章1',
+      content: '这是测试文章1的内容',
+      author: '测试作者',
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: '2',
+      title: '测试文章2',
+      content: '这是测试文章2的内容',
+      author: '测试作者',
+      createdAt: new Date().toISOString()
+    }
+  ];
+  
+  res.json({
+    success: true,
+    data: mockPosts,
+    total: mockPosts.length,
+    message: '测试文章数据（不依赖数据库）'
+  });
+});
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
