@@ -282,16 +282,6 @@ textarea.form-control {
   color: #495057;
 }
 
-.search-indicator {
-  position: absolute;
-  right: 2.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6c757d;
-  font-size: 0.875rem;
-  pointer-events: none;
-  opacity: 0.8;
-}
 
 .search-btn {
   padding: 0.75rem 1.5rem;
@@ -347,9 +337,6 @@ textarea.form-control {
   100% { opacity: 0.6; }
 }
 
-.search-loading {
-  animation: pulse 1.5s ease-in-out infinite;
-}
 
 /* Responsive search */
 @media (max-width: 768px) {
@@ -366,10 +353,7 @@ textarea.form-control {
     right: 0.75rem;
   }
   
-  .search-indicator {
-    right: 0.75rem;
-  }
-  
+    
   .search-btn {
     width: 100%;
   }
