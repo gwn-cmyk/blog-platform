@@ -1,17 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Post } from '../types';
 import api from '../services/api';
 
 const Home: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
-  const fetchPosts = async (page: number, searchQuery: string = '') => {
+  // Initialize search from URL parameters
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      const decodedSearch = decodeURIComponent(searchParam);
+      setSearch(decodedSearch);
+      setSearchInput(decodedSearch);
+    }
+  }, [searchParams]);
+
+  const fetchPosts = useCallback(async (page: number, searchQuery: string = '') => {
     try {
       setLoading(true);
       const response = await api.getPosts(page, 10, searchQuery);
@@ -28,17 +41,58 @@ const Home: React.FC = () => {
       setError('网络错误');
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
-  };
+  }, []);
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    (searchQuery: string) => {
+      setSearch(searchQuery);
+      setCurrentPage(1);
+      setIsSearching(false);
+    },
+    [fetchPosts]
+  );
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchInput !== search) {
+        debouncedSearch(searchInput);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput, search, debouncedSearch]);
 
   useEffect(() => {
     fetchPosts(currentPage, search);
-  }, [currentPage, search]);
+  }, [currentPage, search, fetchPosts]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    if (value === '') {
+      setSearch('');
+      setIsSearching(false);
+    } else {
+      setIsSearching(true);
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearch(searchInput);
     setCurrentPage(1);
-    fetchPosts(1, search);
+    setIsSearching(false);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setCurrentPage(1);
+    setIsSearching(false);
+    setSearchParams({});
   };
 
   if (loading) {
@@ -49,19 +103,80 @@ const Home: React.FC = () => {
     <div className="container">
       <div style={{ marginBottom: '2rem' }}>
         <h1>博客文章</h1>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+        <form onSubmit={handleSearchSubmit} className="search-container" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', position: 'relative' }}>
           <input
             type="text"
-            placeholder="搜索文章..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="form-control"
-            style={{ flex: 1 }}
+            placeholder="搜索文章标题、内容或标签..."
+            value={searchInput}
+            onChange={handleSearchChange}
+            className="form-control search-input"
+            style={{ flex: 1, paddingRight: searchInput ? '2.5rem' : '1rem' }}
           />
-          <button type="submit" className="btn btn-primary">
-            搜索
+          {searchInput && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="search-clear-btn"
+              style={{
+                position: 'absolute',
+                right: '2.5rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: '#6c757d',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                padding: '0.25rem'
+              }}
+            >
+              ×
+            </button>
+          )}
+          {isSearching && (
+            <span
+              className="search-indicator"
+              style={{
+                position: 'absolute',
+                right: '2.5rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#6c757d',
+                fontSize: '0.875rem'
+              }}
+            >
+              搜索中...
+            </span>
+          )}
+          <button 
+            type="submit" 
+            className="btn btn-primary search-btn"
+            disabled={isSearching}
+          >
+            {isSearching ? '搜索中...' : '搜索'}
           </button>
         </form>
+        
+        {search && (
+          <div className="search-results-info" style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6c757d' }}>
+            <span>搜索结果: "{search}"</span>
+            <button
+              onClick={clearSearch}
+              className="search-clear-link"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#007bff',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                marginLeft: '0.5rem',
+                fontSize: '0.875rem'
+              }}
+            >
+              清除搜索
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -111,7 +226,7 @@ const Home: React.FC = () => {
 
       {posts.length === 0 && !loading && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>暂无文章</p>
+          <p>{search ? '没有找到相关文章' : '暂无文章'}</p>
         </div>
       )}
 
