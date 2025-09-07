@@ -24,13 +24,23 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/blog-platform', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,
 })
 .then(() => {
   console.log('✅ MongoDB 连接成功');
 })
 .catch(err => {
   console.error('❌ MongoDB 连接失败:', err.message);
-  process.exit(1);
+  console.error('错误详情:', {
+    name: err.name,
+    code: err.code,
+    statusCode: err.statusCode
+  });
+  
+  // 不退出进程，让应用继续运行但数据库不可用
+  console.log('⚠️  应用将在无数据库模式下运行，某些功能可能不可用');
 });
 
 // 用户模型
@@ -476,11 +486,25 @@ app.post('/api/posts/:id/comments', auth, async (req, res) => {
 
 // 健康检查
 app.get('/api/health', (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = {
+    0: '已断开',
+    1: '已连接',
+    2: '正在连接',
+    3: '正在断开'
+  };
+  
   res.json({ 
     status: 'ok', 
     message: 'API 运行正常',
     timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? '已连接' : '未连接'
+    database: {
+      state: dbState,
+      status: dbStatus[dbState] || '未知',
+      host: mongoose.connection.host || '未知',
+      name: mongoose.connection.name || '未知'
+    },
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
