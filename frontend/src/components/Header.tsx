@@ -11,6 +11,7 @@ const Header: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      // Only navigate when search button is clicked
       navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -21,7 +22,6 @@ const Header: React.FC = () => {
 
   const clearSearch = () => {
     setSearchQuery('');
-    navigate('/');
   };
 
   return (
