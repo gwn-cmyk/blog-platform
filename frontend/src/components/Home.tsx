@@ -149,7 +149,7 @@ const Home: React.FC = () => {
               </Link>
             </h2>
             <div className="post-meta">
-              <span>作者: {post.author.username}</span>
+              <span>作者: {post.author?.username || '已删除用户'}</span>
               <span>发布时间: {new Date(post.createdAt).toLocaleDateString()}</span>
               <span>阅读量: {post.views}</span>
             </div>

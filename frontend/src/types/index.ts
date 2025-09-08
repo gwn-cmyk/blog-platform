@@ -12,7 +12,7 @@ export interface Post {
   title: string;
   content: string;
   excerpt: string;
-  author: User;
+  author: User | null;
   tags: string[];
   featuredImage: string;
   status: 'draft' | 'published';
@@ -27,7 +27,7 @@ export interface Post {
 export interface Comment {
   _id: string;
   content: string;
-  author: User;
+  author: User | null;
   post: string;
   parent?: string;
   likes: string[];

@@ -166,7 +166,9 @@ const PostDetail: React.FC = () => {
           {comments.map((comment) => (
             <div key={comment._id}>
               <div className="comment">
-                <div className="comment-author">{comment.author.username}</div>
+                <div className="comment-author">
+                  {comment.author?.username || '已删除用户'}
+                </div>
                 <div className="comment-content">{comment.content}</div>
                 <div className="comment-date">
                   {new Date(comment.createdAt).toLocaleDateString()}
@@ -209,7 +211,9 @@ const PostDetail: React.FC = () => {
 
               {comment.replies && comment.replies.map((reply) => (
                 <div key={reply._id} className="comment reply">
-                  <div className="comment-author">{reply.author.username}</div>
+                  <div className="comment-author">
+                    {reply.author?.username || '已删除用户'}
+                  </div>
                   <div className="comment-content">{reply.content}</div>
                   <div className="comment-date">
                     {new Date(reply.createdAt).toLocaleDateString()}

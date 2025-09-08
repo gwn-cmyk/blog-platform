@@ -83,7 +83,7 @@ const AdminDashboard: React.FC = () => {
                     {post.title}
                   </Link>
                 </td>
-                <td style={{ padding: '0.5rem' }}>{post.author.username}</td>
+                <td style={{ padding: '0.5rem' }}>{post.author?.username || '已删除用户'}</td>
                 <td style={{ padding: '0.5rem' }}>
                   <span style={{
                     backgroundColor: post.status === 'published' ? '#28a745' : '#ffc107',
