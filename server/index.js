@@ -397,11 +397,26 @@ app.get('/api/comments/post/:id', async (req, res) => {
       .populate('author', 'username avatar')
       .sort('createdAt');
     
-    const commentsWithReplies = comments.map(comment => {
+    // 处理已删除用户的评论
+    const processComment = (comment) => {
       const commentObj = comment.toObject();
-      commentObj.replies = replies.filter(reply => 
-        reply.parent && reply.parent.toString() === comment._id.toString()
-      );
+      if (!commentObj.author) {
+        commentObj.author = {
+          _id: null,
+          username: '已删除用户',
+          avatar: ''
+        };
+      }
+      return commentObj;
+    };
+    
+    const commentsWithReplies = comments.map(comment => {
+      const commentObj = processComment(comment);
+      commentObj.replies = replies
+        .filter(reply => 
+          reply.parent && reply.parent.toString() === comment._id.toString()
+        )
+        .map(processComment);
       return commentObj;
     });
     
@@ -440,6 +455,77 @@ app.post('/api/posts/:id/comments', auth, async (req, res) => {
     res.status(201).json(comment);
   } catch (error) {
     res.status(500).json({ message: '服务器错误' });
+  }
+});
+
+// 修复孤立评论的端点
+app.post('/api/admin/fix-orphaned-comments', auth, admin, async (req, res) => {
+  try {
+    console.log('🔍 开始查找孤立的评论...');
+    
+    // 查找所有评论
+    const allComments = await Comment.find();
+    console.log(`📊 总共找到 ${allComments.length} 条评论`);
+    
+    // 查找所有存在的用户ID
+    const allUsers = await User.find();
+    const userIds = allUsers.map(user => user._id.toString());
+    console.log(`👥 总共找到 ${allUsers.length} 个用户`);
+    
+    // 找出孤立的评论（引用不存在的用户）
+    const orphanedComments = allComments.filter(comment => 
+      !userIds.includes(comment.author.toString())
+    );
+    
+    console.log(`🚨 发现 ${orphanedComments.length} 条孤立评论（引用已删除用户）`);
+    
+    if (orphanedComments.length === 0) {
+      return res.json({
+        success: true,
+        message: '✅ 没有发现孤立评论，数据库状态良好',
+        fixed: 0
+      });
+    }
+    
+    // 创建"已删除用户"用户
+    let deletedUser = await User.findOne({ username: 'deleted_user' });
+    
+    if (!deletedUser) {
+      deletedUser = new User({
+        username: 'deleted_user',
+        email: 'deleted@example.com',
+        password: 'deleted_user_password',
+        role: 'user',
+        avatar: '',
+        bio: '已删除的用户'
+      });
+      await deletedUser.save();
+      console.log('✅ 已创建"已删除用户"账户');
+    }
+    
+    // 更新孤立评论的作者
+    console.log('🔄 正在更新孤立评论的作者...');
+    
+    for (const comment of orphanedComments) {
+      comment.author = deletedUser._id;
+      await comment.save();
+    }
+    
+    console.log(`✅ 已更新 ${orphanedComments.length} 条评论的作者为"已删除用户"`);
+    
+    res.json({
+      success: true,
+      message: `✅ 已修复 ${orphanedComments.length} 条孤立评论`,
+      fixed: orphanedComments.length
+    });
+    
+  } catch (error) {
+    console.error('❌ 修复过程中出错:', error);
+    res.status(500).json({
+      success: false,
+      message: '修复过程中出错',
+      error: error.message
+    });
   }
 });
 
