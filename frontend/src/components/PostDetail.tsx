@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Post, Comment } from '../types';
 import api from '../services/api';
+import ErrorBoundary from './ErrorBoundary';
 
 const PostDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,11 +42,17 @@ const PostDetail: React.FC = () => {
 
   const fetchComments = async () => {
     try {
+      console.log('正在获取评论...');
       const response = await api.getComments(id!);
       const data = await response.json();
       
+      console.log('评论响应:', data);
+      
       if (response.ok) {
         setComments(data);
+        console.log('评论设置成功:', data);
+      } else {
+        console.error('获取评论失败:', data);
       }
     } catch (err) {
       console.error('获取评论失败:', err);
@@ -96,11 +103,12 @@ const PostDetail: React.FC = () => {
   }
 
   return (
-    <div className="container">
+    <ErrorBoundary>
+      <div className="container">
       <div className="card">
         <h1>{post.title}</h1>
         <div className="post-meta">
-          <span>作者: {post.author.username}</span>
+          <span>作者: {post.author?.username || '已删除用户'}</span>
           <span>发布时间: {new Date(post.createdAt).toLocaleDateString()}</span>
           <span>阅读量: {post.views}</span>
         </div>
@@ -163,7 +171,7 @@ const PostDetail: React.FC = () => {
         )}
 
         <div style={{ marginTop: '2rem' }}>
-          {comments.map((comment) => (
+          {comments && comments.map((comment) => (
             <div key={comment._id}>
               <div className="comment">
                 <div className="comment-author">
@@ -224,7 +232,8 @@ const PostDetail: React.FC = () => {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 
