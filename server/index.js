@@ -220,21 +220,48 @@ app.get('/api/posts', async (req, res) => {
     const posts = await Post.find(query)
       .sort(sort)
       .skip((page - 1) * limit)
-      .limit(limit)
-      .populate('author', 'username avatar');
+      .limit(limit);
 
     const total = await Post.countDocuments(query);
 
+    // 处理文章作者信息
+    const allAuthorIds = posts.map(post => post.author.toString());
+    const uniqueAuthorIds = [...new Set(allAuthorIds)];
+    const existingUsers = await User.find({ _id: { $in: uniqueAuthorIds } });
+    const existingUserIds = existingUsers.map(user => user._id.toString());
+
+    // 处理每篇文章的作者信息
+    const processedPosts = posts.map(post => {
+      const postObj = post.toObject();
+      const authorExists = existingUserIds.includes(post.author.toString());
+      
+      if (!authorExists) {
+        postObj.author = {
+          _id: null,
+          username: '已删除用户',
+          avatar: ''
+        };
+      } else {
+        const user = existingUsers.find(u => u._id.toString() === post.author.toString());
+        postObj.author = {
+          _id: user._id,
+          username: user.username,
+          avatar: user.avatar || ''
+        };
+      }
+      return postObj;
+    });
+
     res.status(200).json({
       success: true,
-      count: posts.length,
+      count: processedPosts.length,
       pagination: {
         page,
         limit,
         total,
         pages: Math.ceil(total / limit)
       },
-      data: posts
+      data: processedPosts
     });
   } catch (err) {
     res.status(500).json({
@@ -246,14 +273,36 @@ app.get('/api/posts', async (req, res) => {
 
 app.get('/api/posts/:id', async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id)
-      .populate('author', 'username avatar bio');
+    const post = await Post.findById(req.params.id);
 
     if (!post) {
       return res.status(404).json({
         success: false,
         error: '文章未找到'
       });
+    }
+
+    // 检查作者是否存在
+    let author = null;
+    if (post.author) {
+      author = await User.findById(post.author);
+    }
+
+    // 如果作者不存在，设置为已删除用户
+    if (!author) {
+      post.author = {
+        _id: null,
+        username: '已删除用户',
+        avatar: '',
+        bio: ''
+      };
+    } else {
+      post.author = {
+        _id: author._id,
+        username: author.username,
+        avatar: author.avatar || '',
+        bio: author.bio || ''
+      };
     }
 
     post.views += 1;
@@ -264,6 +313,7 @@ app.get('/api/posts/:id', async (req, res) => {
       data: post
     });
   } catch (err) {
+    console.error('获取文章失败:', err);
     res.status(500).json({
       success: false,
       error: '服务器错误'
@@ -389,22 +439,39 @@ app.delete('/api/posts/:id', auth, admin, async (req, res) => {
 
 app.get('/api/comments/post/:id', async (req, res) => {
   try {
+    // 首先获取评论，不使用 populate，避免 populate 失败
     const comments = await Comment.find({ post: req.params.id, parent: null })
-      .populate('author', 'username avatar')
       .sort('createdAt');
     
     const replies = await Comment.find({ post: req.params.id, parent: { $ne: null } })
-      .populate('author', 'username avatar')
       .sort('createdAt');
     
-    // 处理已删除用户的评论
+    // 获取所有用户ID
+    const allAuthorIds = [...comments, ...replies].map(comment => comment.author.toString());
+    const uniqueAuthorIds = [...new Set(allAuthorIds)];
+    
+    // 查找存在的用户
+    const existingUsers = await User.find({ _id: { $in: uniqueAuthorIds } });
+    const existingUserIds = existingUsers.map(user => user._id.toString());
+    
+    // 处理评论
     const processComment = (comment) => {
       const commentObj = comment.toObject();
-      if (!commentObj.author) {
+      const authorExists = existingUserIds.includes(comment.author.toString());
+      
+      if (!authorExists) {
         commentObj.author = {
           _id: null,
           username: '已删除用户',
           avatar: ''
+        };
+      } else {
+        // 找到对应的用户信息
+        const user = existingUsers.find(u => u._id.toString() === comment.author.toString());
+        commentObj.author = {
+          _id: user._id,
+          username: user.username,
+          avatar: user.avatar || ''
         };
       }
       return commentObj;
@@ -422,6 +489,7 @@ app.get('/api/comments/post/:id', async (req, res) => {
     
     res.json(commentsWithReplies);
   } catch (error) {
+    console.error('获取评论失败:', error);
     res.status(500).json({ message: '服务器错误' });
   }
 });
